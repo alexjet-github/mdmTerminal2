@@ -1,0 +1,36 @@
+dist: xenial
+
+language: generic
+
+sudo: true
+
+git:
+  depth: 1
+
+addons:
+  apt:
+    packages:
+    - swig3.0
+    - libxml2-dev
+    - libatlas-base-dev
+    - portaudio19-dev
+    - libssl-dev
+    - mpg123
+    - flac
+    - sox
+    - lame
+
+before_install:
+  - python3.6 -V
+  - sudo apt-get install --no-install-recommends -y mpd
+
+install:
+  - python3.6 -m pip install -r Requirements/pip-requirements.txt
+
+before_script:
+  - chmod +x scripts/snowboy_build.sh
+  - alias swig='swig3.0'
+  - ./scripts/snowboy_build.sh
+
+script:
+  - python3.6 -u tests.py
