@@ -19,6 +19,7 @@ addons:
     - flac
     - sox
     - lame
+    - python3-pip
 
 before_install:
   - python3 -V
