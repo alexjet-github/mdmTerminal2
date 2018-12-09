@@ -1,6 +1,7 @@
 dist: xenial
 
-language: generic
+language:
+  generic
 
 sudo: true
 
