@@ -1,7 +1,6 @@
 dist: xenial
 
-language:
-  generic
+language: generic
 
 sudo: true
 
@@ -22,11 +21,11 @@ addons:
     - lame
 
 before_install:
-  - python3.6 -V
+  - python3 -V
   - sudo apt-get install --no-install-recommends -y mpd
 
 install:
-  - python3.6 -m pip install -r Requirements/pip-requirements.txt
+  - python3 -m pip install -r Requirements/pip-requirements.txt
 
 before_script:
   - chmod +x scripts/snowboy_build.sh
@@ -34,4 +33,4 @@ before_script:
   - ./scripts/snowboy_build.sh
 
 script:
-  - python3.6 -u tests.py
+  - python3 -u tests.py
