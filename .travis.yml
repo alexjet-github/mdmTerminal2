@@ -20,6 +20,7 @@ addons:
     - sox
     - lame
     - python3-pip
+    - python3-wheel
 
 before_install:
   - python3 -V
