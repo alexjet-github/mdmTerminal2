@@ -277,7 +277,9 @@ class API:
 
     @api_commands('get_map_settings')
     def _api_get_map_settings(self, *_):
-        return make_map_settings(self.cfg.wiki_desc)
+        if not self.cfg.gt('smarthome', 'token'):
+            raise InternalException(msg='[smarthome] token empty. Set token before using')
+        return make_map_settings(self.cfg.wiki_desc, self.cfg)
 
     # @api_commands('call.plugin', 'call.owner', 'call.global')
     @api_commands('call.plugin')
@@ -332,7 +334,8 @@ class API:
         for target in path:
             obj = getattr(obj, target, None)
             if obj is None:
-                raise InternalException(code=4, msg='method \'{}\' not found in \'{}\''.format(target, '.'.join(walked)))
+                msg = 'method \'{}\' not found in \'{}\''.format(target, '.'.join(walked))
+                raise InternalException(code=4, msg=msg)
             walked.append(target)
         try:
             result = obj(*args, **kwargs)
@@ -436,13 +439,13 @@ class SocketAPIHandler(threading.Thread, APIHandler):
         # Клиент получит ответ на все ошибки коммуникации
         self._duplex_mode = duplex_mode
         self.work = False
-        self._conn = Connect(None, None, self.do_ws_allow)
+        self._conn = Connect(None, None)
         self._lock = Unlock()
         self.id = None
         # Команды API не требующие авторизации
         self.NON_AUTH = {
-            'authorization', 'hi', 'voice', 'play', 'pause', 'tts', 'ask', 'settings', 'volume', 'volume_q', 'rec',
-            'remote_log', 'music_volume', 'music_volume_q', 'listener',
+            'authorization', 'hi', 'voice', 'play', 'pause', 'tts', 'ask', 'volume', 'volume_q', 'rec',
+            'music_volume', 'music_volume_q', 'listener',
         }
 
     @api_commands('authorization')
@@ -481,9 +484,6 @@ class SocketAPIHandler(threading.Thread, APIHandler):
             self.work = True
             super().start()
             self.log('start', logger.INFO)
-
-    def do_ws_allow(self, ip, port, token):
-        raise NotImplemented
 
     def run(self):
         raise NotImplemented

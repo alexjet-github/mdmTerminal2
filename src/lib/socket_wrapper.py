@@ -37,7 +37,6 @@ GUID_STR = b'258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
 PLATFORM = platform.system().capitalize()
 
 CRLF = b'\r\n'
-AUTH_FAILED = 'Terminal rejected connection (incorrect ws_token?). BYE!'
 ALL_EXCEPTS = (OSError, websocket.WebSocketException, TypeError, ValueError, AttributeError)
 
 if PLATFORM == 'Windows':
@@ -72,11 +71,10 @@ def get_headers(request_text: bytearray) -> dict:
 class Connect:
     CHUNK_SIZE = 1024 * 4
 
-    def __init__(self, conn, ip_info, ws_allow, auth=False):
+    def __init__(self, conn, ip_info, auth=False):
         self._conn = conn
         self._is_ws = isinstance(conn, websocket.WebSocket)
         self._ip_info = ip_info
-        self._ws_allow = ws_allow
         self.auth = auth
         self._send_lock = threading.Lock()
         self._recv_lock = threading.Lock()
@@ -113,7 +111,7 @@ class Connect:
     def extract(self):
         if self._conn:
             try:
-                return Connect(self._conn, self._ip_info, self._ws_allow, self.auth)
+                return Connect(self._conn, self._ip_info, self.auth)
             finally:
                 self._conn = None
                 self._ip_info = None
@@ -200,11 +198,10 @@ class Connect:
             data = data.decode()
         elif not isinstance(data, str):
             raise RuntimeError('Unsupported data type: {}'.format(repr(type(data))))
-        if self._conn.auth:
-            try:
-                self._conn.send(data)
-            except ALL_EXCEPTS as e:
-                raise RuntimeError(e)
+        try:
+            self._conn.send(data)
+        except ALL_EXCEPTS as e:
+            raise RuntimeError(e)
 
     def read(self):
         """
@@ -243,24 +240,8 @@ class Connect:
                 chunk = self._conn.recv()
             except ALL_EXCEPTS:
                 break
-            if chunk is None:
-                continue
-            if not self._conn.auth:
-                if not self._ws_auth(chunk):
-                    return
-                continue
-            yield chunk
-
-    def _ws_auth(self, chunk) -> bool:
-        if self._ws_allow(self.ip, self.port, chunk):
-            self._conn.auth = True
-            return True
-        try:
-            self._conn.send(AUTH_FAILED)
-        except ALL_EXCEPTS:
-            pass
-        self.close()
-        return False
+            if chunk:
+                yield chunk
 
 
 class WebSocketCap(threading.Thread):
@@ -286,7 +267,6 @@ class WSClientAdapter(websocket.WebSocket):
         super().__init__(get_mask_key, sockopt, sslopt, fire_cont_frame, enable_multithread, skip_utf8_validation)
 
         self.poll = None
-        self.auth = False
 
     def recv(self):
         with self.readlock:
@@ -359,7 +339,7 @@ class WSServerAdapter(WSClientAdapter):
 def create_connection(proto: str, ip: str, port: int) -> Connect:
     proto = proto.lower()
     soc = ws_maker(proto, ip, port) if proto in ('ws', 'wss') else tcp_maker(proto, ip, port)
-    return Connect(soc, (ip, port), lambda *_, **__: False)
+    return Connect(soc, (ip, port))
 
 
 def ws_maker(proto, ip, port) -> WSClientAdapter:
@@ -373,7 +353,6 @@ def ws_maker(proto, ip, port) -> WSClientAdapter:
         )
     except ALL_EXCEPTS as e:
         raise RuntimeError(e)
-    ws.auth = True
     return ws
 
 

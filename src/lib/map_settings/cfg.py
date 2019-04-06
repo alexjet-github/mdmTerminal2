@@ -6,8 +6,11 @@ from lib.snowboy_training import Training
 VAD_MODE = ['snowboy', 'webrtc', 'apm', 'energy']
 VAD_LVL = [0, 1, 2, 3]
 LOG_LVL = ['debug', 'info', 'warn', 'error', 'crit']
-_0_100 = list(range(101))
 RHVoice = ['anna', 'elena', 'irina', 'aleksandr']
+
+
+def _0_100():
+    return list(range(101))
 
 
 INTERFACES = {

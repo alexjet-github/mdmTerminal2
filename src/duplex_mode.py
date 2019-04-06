@@ -54,9 +54,6 @@ class DuplexMode(SocketAPIHandler):
         self.duplex = False
         self._conn.close()
 
-    def do_ws_allow(self, *args, **kwargs):
-        return False
-
     def run(self):
         while self.work:
             conn = self._queue.get()

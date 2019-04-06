@@ -21,15 +21,6 @@ class MDTServer(SocketAPIHandler):
         except RuntimeError as e:
             raise InternalException(msg=str(e))
 
-    def do_ws_allow(self, ip, port, token):
-        ws_token = self.cfg.gt('system', 'ws_token')
-        allow = ws_token and ws_token == token
-        msg = '{} upgrade socket to webSocket from {}:{}'.format('Allow' if allow else 'Ignore', ip, port)
-        self.log(msg, logger_.DEBUG if allow else logger_.WARN)
-        if allow and ws_token == 'token_is_unset':
-            self.log('WebSocket token is unset, it is very dangerous!', logger_.WARN)
-        return allow
-
     def _open_socket(self) -> bool:
         self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._socket.settimeout(1)
