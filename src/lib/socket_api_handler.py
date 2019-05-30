@@ -277,8 +277,6 @@ class API:
 
     @api_commands('get_map_settings')
     def _api_get_map_settings(self, *_):
-        if not self.cfg.gt('smarthome', 'token'):
-            raise InternalException(msg='[smarthome] token empty. Set token before using')
         return make_map_settings(self.cfg.wiki_desc, self.cfg)
 
     # @api_commands('call.plugin', 'call.owner', 'call.global')
@@ -442,11 +440,17 @@ class SocketAPIHandler(threading.Thread, APIHandler):
         self._conn = Connect(None, None)
         self._lock = Unlock()
         self.id = None
+        # использован пустой токен при авторизации
+        # TODO: заменить это и Connect.auth на Connect.auth_lvl
+        self._empty_token = False
         # Команды API не требующие авторизации
         self.NON_AUTH = {
             'authorization', 'hi', 'voice', 'play', 'pause', 'tts', 'ask', 'volume', 'volume_q', 'rec',
             'music_volume', 'music_volume_q', 'listener',
         }
+        # Команды требущие авторизации также требуют не пустой токен, тут будут исключения из этого правила
+        # токен устанавливается через settings и будет странно не разрешить deauthorization
+        self.ALLOW_EMPTY_TOKEN = {'settings', 'deauthorization'}
 
     @api_commands('authorization')
     def _authorization(self, cmd, remote_hash):
@@ -456,6 +460,9 @@ class SocketAPIHandler(threading.Thread, APIHandler):
                 local_hash = hashlib.sha512(token.encode()).hexdigest()
                 if local_hash != remote_hash:
                     raise InternalException(msg='forbidden: wrong hash')
+                self._empty_token = False
+            else:
+                self._empty_token = True
             self._conn.auth = True
             msg = 'authorized'
             self.log('API.{} {}'.format(cmd, msg), logger.INFO)
@@ -515,6 +522,12 @@ class SocketAPIHandler(threading.Thread, APIHandler):
             if id_ is not None:
                 self._write({'result': None, 'id': id_})
 
+        def wrong_auth(code, msg__):
+            self._handle_exception(
+                InternalException(code=code, msg=msg__, id_=id_),
+                cmd,
+                self.API_CODE.get('authorization', 1000)
+            )
         if not data:
             self._handle_exception(InternalException(code=-32600, msg='no data'))
             return
@@ -528,13 +541,15 @@ class SocketAPIHandler(threading.Thread, APIHandler):
         except RuntimeError:
             return
 
-        if not self._conn.auth and cmd not in self.NON_AUTH:
-            self._handle_exception(
-                InternalException(code=0, msg='forbidden: authorization is necessary', id_=id_),
-                cmd,
-                self.API_CODE.get('authorization', 1000)
-            )
-        elif self.own.has_subscribers(cmd, self.NET):
+        if cmd not in self.NON_AUTH:
+            if not self._conn.auth:
+                wrong_auth(0, 'forbidden: authorization is necessary')
+                return
+            elif self._empty_token and cmd not in self.ALLOW_EMPTY_TOKEN:
+                wrong_auth(8, '[smarthome] token is empty. Set token before using this command')
+                return
+
+        if self.own.has_subscribers(cmd, self.NET):
             self.log('Command {} intercepted'.format(repr(cmd)))
             self.own.sub_call(self.NET, cmd, data)
             write_none()
